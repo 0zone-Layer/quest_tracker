@@ -6,8 +6,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<QuestTracker />} />
-        <Route path="/profile" element={<PublicProfile />} />
+        {/* Public page first */}
+        <Route path="/" element={<PublicProfile />} />
+
+        {/* Tracker (private) */}
+        <Route path="/profile" element={<QuestTracker />} />
       </Routes>
     </BrowserRouter>
   );
