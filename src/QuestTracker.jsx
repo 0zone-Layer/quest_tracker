@@ -496,7 +496,7 @@ export default function QuestTracker() {
       saveCompleted(next);
       return next;
     });
-  };
+  }, [saveCompleted]);
 
   // ── Focus pin ──
   const pinQuest = useCallback((id) => {
@@ -508,7 +508,7 @@ export default function QuestTracker() {
       if (!prev.ids.includes(id)) showToast("📌 Added to Today's Focus");
       return next;
     });
-  };
+  }, [saveFocus]);
 
   const showToast = (msg) => {
     setToast(msg);
