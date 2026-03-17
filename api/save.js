@@ -24,16 +24,20 @@ export default async function handler(req, res) {
   }
   const { secret, key, value } = JSON.parse(body || "{}");
 
+  console.log("Save attempt:", { secret: secret ? "provided" : "missing", key, value: value ? "provided" : "missing" });
+
   if (secret !== process.env.SAVE_SECRET) {
-    console.error("Unauthorized save attempt");
+    console.error("Unauthorized save attempt - secret mismatch");
     return res.status(401).json({ error: "Unauthorized" });
   }
   if (!key) {
+    console.error("Missing key");
     return res.status(400).json({ error: "Missing key" });
   }
 
   try {
     await redis.set(`knk:${key}`, value);
+    console.log("Successfully saved:", `knk:${key}`);
     return res.status(200).json({ ok: true });
   } catch (err) {
     console.error("Redis save error:", err);

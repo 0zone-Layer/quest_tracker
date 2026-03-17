@@ -16,34 +16,42 @@ export async function cloudGet(key, forceFresh = false) {
     if (age < TTL) return cache.get(key);
   }
 
+  console.log("cloudGet called:", key, forceFresh ? "(force fresh)" : "(cached)");
   try {
     const res = await fetch(
       `/api/load?key=${encodeURIComponent(key)}&secret=${SECRET}`
     );
-
-    if (!res.ok) return null;
+    console.log("Load API response status:", res.status);
+    if (!res.ok) {
+      console.error("Load API error");
+      return null;
+    }
 
     const data = await res.json();
+    console.log("Loaded data:", data);
 
     cache.set(key, data.value);
     cacheTime.set(key, now);
 
     return data.value;
-  } catch {
+  } catch (error) {
+    console.error("Load fetch error:", error);
     return null;
   }
 }
 
 // ✅ SET DATA
 export function cloudSet(key, value) {
+  console.log("cloudSet called:", key, value);
   cache.set(key, value);
   cacheTime.set(key, Date.now());
 
   clearTimeout(timers[key]);
 
   timers[key] = setTimeout(async () => {
+    console.log("Attempting to save to API:", key);
     try {
-      await fetch("/api/save", {
+      const response = await fetch("/api/save", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -54,7 +62,16 @@ export function cloudSet(key, value) {
           value,
         }),
       });
-    } catch {}
+      console.log("API response status:", response.status);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("API error:", errorText);
+      } else {
+        console.log("Successfully saved:", key);
+      }
+    } catch (error) {
+      console.error("Fetch error:", error);
+    }
   }, 300);
 
   // 🔥 notify other components
