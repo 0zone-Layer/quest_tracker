@@ -1,6 +1,6 @@
+import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
 const username = "rahul";
 const USER_KEY = `user:${username}`;
-import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
 
 
 // ─── DATA ────────────────────────────────────────────────────────────────────
