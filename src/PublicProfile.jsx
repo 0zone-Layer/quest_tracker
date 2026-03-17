@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef, memo } from "react";
-import { Redis } from "@upstash/redis";
+import { cloudGet, cloudSet } from "./cloudStorage.js";
 
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
