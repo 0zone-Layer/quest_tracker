@@ -1,6 +1,10 @@
 // ─── CLOUD API (REPLACES cloudStorage.js) ─────────────────────────
 
-const API_SECRET = import.meta.env.VITE_SAVE_SECRET || "test123";
+const API_SECRET = import.meta.env.VITE_SAVE_SECRET;
+
+if (!API_SECRET) {
+  console.warn("Missing VITE_SAVE_SECRET");
+}
 
 // 🔹 Load data (public + private safe)
 async function cloudGet(key, isPublic = false) {
