@@ -1,5 +1,7 @@
+const username = "rahul";
+const USER_KEY = `user:${username}`;
 import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
-import { cloudGet, cloudSet } from "./cloudStorage";
+
 
 // ─── DATA ────────────────────────────────────────────────────────────────────
 
