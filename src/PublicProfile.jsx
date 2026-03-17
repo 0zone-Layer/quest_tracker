@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef, memo } from "react";
-import { cloudGet, cloudSet } from "./cloudStorage.js";
+import { getProfile, saveProfile } from "./cloudStorage.js";
 
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
@@ -497,23 +497,35 @@ export default function PublicProfile() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await cloudGet("quest-v2");
-        if (r) setCompleted(JSON.parse(r));
-      } catch {}
+        console.log("PublicProfile: Loading profile for default user");
+        const profile = await getProfile("default");
+        if (profile && profile.completed) {
+          console.log("PublicProfile: Loaded completed quests:", profile.completed);
+          setCompleted(profile.completed);
+        }
+      } catch (error) {
+        console.error("PublicProfile: Error loading profile:", error);
+      }
 
       // Daily quote via Gemini
       const today = todayKey();
       let finalQuote = null;
+
+      // Try to get cached quote from localStorage
       try {
-        const cached = await cloudGet("daily-quote");
+        const cached = localStorage.getItem("daily-quote");
         if (cached) {
           const d = JSON.parse(cached);
-          if (d.date === today) finalQuote = d.quote;
+          if (d.date === today) {
+            console.log("PublicProfile: Using cached quote");
+            finalQuote = d.quote;
+          }
         }
       } catch {}
 
       if (!finalQuote && GEMINI_KEY) {
         try {
+          console.log("PublicProfile: Fetching new quote from Gemini");
           const res = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
             {
@@ -532,10 +544,14 @@ export default function PublicProfile() {
           const data = await res.json();
           const q = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim().replace(/^["']|["']$/g,"");
           if (q && q.length > 10) {
+            console.log("PublicProfile: Got quote from Gemini");
             finalQuote = q;
-            cloudSet("daily-quote", JSON.stringify({ date: today, quote: q }));
+            // Cache to localStorage instead of backend
+            localStorage.setItem("daily-quote", JSON.stringify({ date: today, quote: q }));
           }
-        } catch {}
+        } catch (error) {
+          console.error("PublicProfile: Error fetching quote:", error);
+        }
       }
 
       if (!finalQuote) {

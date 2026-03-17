@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
-import { cloudGet, cloudSet } from "./cloudStorage.js";
+import { getProfile, saveProfile } from "./cloudStorage.js";
 
 
 // ─── DATA ────────────────────────────────────────────────────────────────────
@@ -176,6 +176,9 @@ const PHASES = [
 ];
 
 const ALL_QUESTS = PHASES.flatMap(p => p.quests.map(q => ({ ...q, phase: p })));
+
+// Default username for single-user tracker
+const USERNAME = "default";
 
 const TIPS = [
   "Read source code daily. 30 min of Redis or Node.js source teaches more than any tutorial.",
@@ -453,55 +456,44 @@ export default function QuestTracker() {
   useEffect(() => {
     (async () => {
       try {
-        console.log("Starting to load data...");
-        const r1 = await cloudGet("quest-v2");
-        console.log("Raw r1 from cloudGet:", r1);
-        if (r1) {
-          try {
-            const parsed = JSON.parse(r1);
-            console.log("Parsed completed data:", parsed);
-            setCompleted(parsed);
-          } catch (parseError) {
-            console.error("Failed to parse completed data:", parseError);
-          }
-        } else {
-          console.log("No completed data found");
-        }
-        const r2 = await cloudGet("daily-focus");
-        console.log("Raw r2 from cloudGet:", r2);
-        if (r2) {
-          try {
-            const df = JSON.parse(r2);
-            console.log("Parsed daily focus data:", df);
-            // reset if stale date
-            setDailyFocus(df.date === todayKey() ? df : { date: todayKey(), ids: [] });
-          } catch (parseError) {
-            console.error("Failed to parse daily focus data:", parseError);
+        console.log("Loading profile for user:", USERNAME);
+        const profile = await getProfile(USERNAME);
+        console.log("Loaded profile:", profile);
+
+        if (profile) {
+          setCompleted(profile.completed || {});
+          // Reset daily focus if stale date
+          if (profile.dailyFocus && profile.dailyFocus.date === todayKey()) {
+            setDailyFocus(profile.dailyFocus);
+          } else {
             setDailyFocus({ date: todayKey(), ids: [] });
           }
         } else {
-          console.log("No daily focus data found");
+          console.log("No profile found, using defaults");
+          setCompleted({});
           setDailyFocus({ date: todayKey(), ids: [] });
         }
       } catch (error) {
-        console.error("Error during data loading:", error);
+        console.error("Error loading profile:", error);
+        setCompleted({});
+        setDailyFocus({ date: todayKey(), ids: [] });
       }
       setLoaded(true);
     })();
   }, []);
 
   const saveTimers = useRef({});
-  const saveCompleted = useCallback((next) => {
-    clearTimeout(saveTimers.current.completed);
-    saveTimers.current.completed = setTimeout(async () => {
-      cloudSet("quest-v2", JSON.stringify(next));
-    }, 400);
-  }, []);
-  const saveFocus = useCallback((next) => {
-    clearTimeout(saveTimers.current.focus);
-    saveTimers.current.focus = setTimeout(async () => {
-      cloudSet("daily-focus", JSON.stringify(next));
-    }, 400);
+
+  // Save entire profile (both completed and dailyFocus)
+  const saveProfile_ = useCallback((completed_, dailyFocus_) => {
+    clearTimeout(saveTimers.current.profile);
+    saveTimers.current.profile = setTimeout(() => {
+      console.log("Saving profile...");
+      saveProfile(USERNAME, {
+        completed: completed_,
+        dailyFocus: dailyFocus_,
+      });
+    }, 300);
   }, []);
 
   // ── Quest toggle ──
@@ -516,10 +508,14 @@ export default function QuestTracker() {
         showToast(`+${quest.xp} XP  ${quest.title.slice(0,34)}…`);
         setTimeout(() => setJustDone(null), 600);
       }
-      saveCompleted(next);
+      // Save profile with updated completed and current dailyFocus
+      setDailyFocus(currentFocus => {
+        saveProfile_(next, currentFocus);
+        return currentFocus;
+      });
       return next;
     });
-  }, [saveCompleted]);
+  }, [saveProfile_]);
 
   // ── Focus pin ──
   const pinQuest = useCallback((id) => {
@@ -527,11 +523,15 @@ export default function QuestTracker() {
       const next = prev.ids.includes(id)
         ? { ...prev, ids: prev.ids.filter(x => x !== id) }
         : { ...prev, ids: [...prev.ids, id] };
-      saveFocus(next);
+      // Save profile with updated dailyFocus and current completed
+      setCompleted(currentCompleted => {
+        saveProfile_(currentCompleted, next);
+        return currentCompleted;
+      });
       if (!prev.ids.includes(id)) showToast("📌 Added to Today's Focus");
       return next;
     });
-  }, [saveFocus]);
+  }, [saveProfile_]);
 
   const showToast = (msg) => {
     setToast(msg);
