@@ -496,13 +496,7 @@ export default function PublicProfile() {
 
   // ── MUSIC PLAYER ──
   const [isPlaying,     setIsPlaying]     = useState(false);
-  const [musicVolume,   setMusicVolume]   = useState(0.35); // 30-40% range
-  const [musicList,     setMusicList]     = useState([
-    { name: "Lofi Chill", url: "/music/lofi.mp3" },
-    { name: "Chill Mode", url: "/music/Chill.mp3" },
-    { name: "Ambient", url: "/music/ambient.mp3" },
-  ]);
-  const [selectedTrack, setSelectedTrack] = useState(2);
+  const [musicVolume,   setMusicVolume]   = useState(0.4); // Default 40%
   const audioRef = useRef(null);
 
   // ── FAST: Load profile + show immediately ──
@@ -615,7 +609,7 @@ export default function PublicProfile() {
   const toggleMusic = async () => {
     if (!audioRef.current) {
       const audio = new Audio();
-      audio.src = musicList[selectedTrack].url;
+      audio.src = "/music/default.mp3"; // Single default track
       audio.loop = true;
       audio.volume = musicVolume;
       audioRef.current = audio;
@@ -631,22 +625,11 @@ export default function PublicProfile() {
         audioRef.current.pause();
       } else {
         audioRef.current.volume = Math.min(musicVolume, 0.4); // Cap at 40%
-        audioRef.current.src = musicList[selectedTrack].url;
         await audioRef.current.play();
       }
       setIsPlaying(!isPlaying);
     } catch (error) {
       console.warn("Audio control failed:", error);
-    }
-  };
-
-  const changeTrack = (index) => {
-    setSelectedTrack(index);
-    if (audioRef.current) {
-      audioRef.current.src = musicList[index].url;
-      if (isPlaying) {
-        audioRef.current.play().catch(() => {});
-      }
     }
   };
 
@@ -732,26 +715,6 @@ export default function PublicProfile() {
             {isPlaying ? "⏸ PAUSE" : "▶ PLAY"}
           </button>
 
-          {/* Track Selector */}
-          <select
-            value={selectedTrack}
-            onChange={(e) => changeTrack(parseInt(e.target.value))}
-            style={{
-              background: "#0f1925",
-              border: "1px solid #1e2d40",
-              color: "#64748b",
-              borderRadius: "4px",
-              padding: "4px 6px",
-              cursor: "pointer",
-              fontSize: "11px",
-              fontFamily: "inherit",
-            }}
-          >
-            {musicList.map((track, idx) => (
-              <option key={idx} value={idx}>{track.name}</option>
-            ))}
-          </select>
-
           {/* Volume Control */}
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <input
@@ -767,7 +730,7 @@ export default function PublicProfile() {
                 cursor: "pointer",
                 accentColor: "#00ff88",
               }}
-              title="Volume (capped at 40%)"
+              title="Volume (30-40%)"
             />
             <span style={{ fontSize: "10px", color: "#475569", minWidth: "28px" }}>
               {Math.round(musicVolume * 100)}%
