@@ -494,6 +494,18 @@ export default function PublicProfile() {
   const [loaded,        setLoaded]        = useState(false);
   const [tgProfile,     setTgProfile]     = useState(null);
 
+  // ── MUSIC PLAYER ──
+  const [isPlaying,     setIsPlaying]     = useState(false);
+  const [musicVolume,   setMusicVolume]   = useState(0.35); // 30-40% range
+  const [musicList,     setMusicList]     = useState([
+    { name: "Lofi Chill", url: "/music/lofi.mp3" },
+    { name: "Focus Mode", url: "/music/focus.mp3" },
+    { name: "Ambient", url: "/music/ambient.mp3" },
+  ]);
+  const [selectedTrack, setSelectedTrack] = useState(0);
+  const audioRef = useRef(null);
+
+  // ── FAST: Load profile + show immediately ──
   useEffect(() => {
     (async () => {
       try {
@@ -507,61 +519,88 @@ export default function PublicProfile() {
         console.error("PublicProfile: Error loading profile:", error);
       }
 
-      // Daily quote via Gemini
+      // Show fallback quote immediately (non-blocking)
       const today = todayKey();
-      let finalQuote = null;
-
-      // Try to get cached quote from localStorage
       try {
         const cached = localStorage.getItem("daily-quote");
         if (cached) {
           const d = JSON.parse(cached);
           if (d.date === today) {
             console.log("PublicProfile: Using cached quote");
-            finalQuote = d.quote;
+            setQuote(d.quote);
+            setQuoteLoading(false);
+          } else {
+            // Use fallback if stale
+            setQuote(FALLBACK_QUOTES[new Date().getDate() % FALLBACK_QUOTES.length]);
+            setQuoteLoading(false);
           }
+        } else {
+          setQuote(FALLBACK_QUOTES[new Date().getDate() % FALLBACK_QUOTES.length]);
+          setQuoteLoading(false);
         }
-      } catch {}
+      } catch {
+        setQuote(FALLBACK_QUOTES[new Date().getDate() % FALLBACK_QUOTES.length]);
+        setQuoteLoading(false);
+      }
 
-      if (!finalQuote && GEMINI_KEY) {
-        try {
-          console.log("PublicProfile: Fetching new quote from Gemini");
-          const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contents: [{
-                  parts: [{
-                    text: "Write exactly one brutally honest, original motivational sentence (12–20 words) for a self-taught systems and security engineer pushing for elite status from a tier-3 college in India. No clichés, no speaker attribution, no quotes marks. Raw and intense. Output only the sentence."
-                  }]
-                }],
-                generationConfig: { temperature: 1.1, maxOutputTokens: 64 }
-              })
-            }
-          );
+      setLoaded(true);
+      setTimeout(() => setAnimated(true), 80);
+    })();
+  }, []);
+
+  // ── BACKGROUND: Fetch fresh quote from Gemini (non-blocking) ──
+  useEffect(() => {
+    if (!GEMINI_KEY) return;
+    
+    const today = todayKey();
+    (async () => {
+      try {
+        // Check if fresh quote already cached
+        const cached = localStorage.getItem("daily-quote");
+        const d = cached ? JSON.parse(cached) : null;
+        if (d?.date === today) return; // Already have today's quote
+
+        console.log("PublicProfile: Fetching fresh quote from Gemini (background)");
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
+          {
+            method: "POST",
+            signal: controller.signal,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{
+                  text: "Write exactly one brutally honest, original motivational sentence (12–20 words) for a self-taught systems and security engineer pushing for elite status from a tier-3 college in India. No clichés, no speaker attribution, no quotes marks. Raw and intense. Output only the sentence."
+                }]
+              }],
+              generationConfig: { temperature: 1.1, maxOutputTokens: 64 }
+            })
+          }
+        );
+
+        clearTimeout(timeout);
+
+        if (res.ok) {
           const data = await res.json();
-          const q = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim().replace(/^["']|["']$/g,"");
+          const q = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim().replace(/^["']|["']$/g, "");
           if (q && q.length > 10) {
-            console.log("PublicProfile: Got quote from Gemini");
-            finalQuote = q;
-            // Cache to localStorage instead of backend
+            console.log("PublicProfile: Got fresh quote from Gemini");
+            setQuote(q);
             localStorage.setItem("daily-quote", JSON.stringify({ date: today, quote: q }));
           }
-        } catch (error) {
-          console.error("PublicProfile: Error fetching quote:", error);
         }
+      } catch (error) {
+        console.warn("PublicProfile: Background Gemini fetch failed (using cached):", error.message);
       }
+    })();
+  }, []);
 
-      if (!finalQuote) {
-        finalQuote = FALLBACK_QUOTES[new Date().getDate() % FALLBACK_QUOTES.length];
-      }
-
-      setQuote(finalQuote);
-      setQuoteLoading(false);
-
-      // Telegram profile — fetch from serverless proxy
+  // ── BACKGROUND: Fetch Telegram profile (non-blocking) ──
+  useEffect(() => {
+    (async () => {
       try {
         const tgRes = await fetch("/api/telegram");
         if (tgRes.ok) {
@@ -569,11 +608,55 @@ export default function PublicProfile() {
           if (!tgData.error) setTgProfile(tgData);
         }
       } catch {}
-
-      setLoaded(true);
-      setTimeout(() => setAnimated(true), 80);
     })();
   }, []);
+
+  // ── MUSIC PLAYER: Lazy load on first play ──
+  const toggleMusic = async () => {
+    if (!audioRef.current) {
+      const audio = new Audio();
+      audio.src = musicList[selectedTrack].url;
+      audio.loop = true;
+      audio.volume = musicVolume;
+      audioRef.current = audio;
+
+      audio.onerror = () => {
+        console.warn("Music load failed");
+        setIsPlaying(false);
+      };
+    }
+
+    try {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.volume = Math.min(musicVolume, 0.4); // Cap at 40%
+        audioRef.current.src = musicList[selectedTrack].url;
+        await audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    } catch (error) {
+      console.warn("Audio control failed:", error);
+    }
+  };
+
+  const changeTrack = (index) => {
+    setSelectedTrack(index);
+    if (audioRef.current) {
+      audioRef.current.src = musicList[index].url;
+      if (isPlaying) {
+        audioRef.current.play().catch(() => {});
+      }
+    }
+  };
+
+  const handleVolumeChange = (e) => {
+    const vol = Math.min(parseFloat(e.target.value), 0.4); // Cap at 40%
+    setMusicVolume(vol);
+    if (audioRef.current) {
+      audioRef.current.volume = vol;
+    }
+  };
 
   // Clock is handled by isolated LiveClock component
 
@@ -612,6 +695,85 @@ export default function PublicProfile() {
     <>
       <style>{CSS}</style>
       <div className="page">
+
+        {/* ── MUSIC PLAYER (Fixed bottom right) ── */}
+        <div style={{
+          position: "fixed",
+          bottom: "20px",
+          right: "20px",
+          background: "#0d1117",
+          border: "1px solid #1e2d40",
+          borderRadius: "12px",
+          padding: "12px",
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          zIndex: 999,
+          fontFamily: "'Share Tech Mono', monospace",
+          boxShadow: "0 0 20px rgba(0,0,0,0.6)",
+        }}>
+          {/* Play/Pause Button */}
+          <button
+            onClick={toggleMusic}
+            style={{
+              background: isPlaying ? "#00ff8822" : "#1e2d40",
+              border: `1px solid ${isPlaying ? "#00ff88" : "#1e2d40"}`,
+              borderRadius: "6px",
+              padding: "6px 10px",
+              color: isPlaying ? "#00ff88" : "#64748b",
+              cursor: "pointer",
+              fontSize: "14px",
+              transition: "all 0.2s",
+              fontFamily: "inherit",
+              fontWeight: "600",
+            }}
+            title="Play/Pause"
+          >
+            {isPlaying ? "⏸ PAUSE" : "▶ PLAY"}
+          </button>
+
+          {/* Track Selector */}
+          <select
+            value={selectedTrack}
+            onChange={(e) => changeTrack(parseInt(e.target.value))}
+            style={{
+              background: "#0f1925",
+              border: "1px solid #1e2d40",
+              color: "#64748b",
+              borderRadius: "4px",
+              padding: "4px 6px",
+              cursor: "pointer",
+              fontSize: "11px",
+              fontFamily: "inherit",
+            }}
+          >
+            {musicList.map((track, idx) => (
+              <option key={idx} value={idx}>{track.name}</option>
+            ))}
+          </select>
+
+          {/* Volume Control */}
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <input
+              type="range"
+              min="0"
+              max="0.4"
+              step="0.05"
+              value={musicVolume}
+              onChange={handleVolumeChange}
+              style={{
+                width: "70px",
+                height: "4px",
+                cursor: "pointer",
+                accentColor: "#00ff88",
+              }}
+              title="Volume (capped at 40%)"
+            />
+            <span style={{ fontSize: "10px", color: "#475569", minWidth: "28px" }}>
+              {Math.round(musicVolume * 100)}%
+            </span>
+          </div>
+        </div>
 
         {/* ── HERO ── */}
         <div className="hero">
