@@ -94,13 +94,7 @@ const TOTAL_QUESTS = Object.keys(QUEST_MAP).length;
 const YEAR_CLR     = { 1:"#00d4ff", 2:"#a855f7", 3:"#ffb800" };
 
 const FALLBACK_QUOTES = [
-  "The gap between you and elite is measured in hours of discomfort they chose not to endure.",
-  "You do not become a systems engineer. You become one by refusing to stay on the surface.",
-  "Every abstraction you do not understand is a ceiling. Build the ladder or stay down.",
-  "The kernel does not care about your feelings. Neither does the deadline. Ship it.",
-  "Average engineers use tools. Elite engineers understand what the tools are hiding.",
-  "Build it until it breaks. Break it until you understand it. Fear nothing after that.",
-  "There is no shortcut to low-level mastery. Only the ones who went deep are still standing.",
+  "You trust in what you’ve never seen. Why not trust in yourself, who stands before you daily?",
 ];
 
 // ─── RANK SYSTEM ─────────────────────────────────────────────────────────────
