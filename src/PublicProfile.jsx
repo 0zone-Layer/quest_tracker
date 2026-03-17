@@ -633,6 +633,16 @@ export default function PublicProfile() {
     } catch (error) {
       console.warn("Audio control failed:", error);
       setIsPlaying(false);
+    }
+  };
+
+  // ── AUTO-PLAY MUSIC ON PAGE LOAD ──
+  useEffect(() => {
+    if (autoPlayAttempted || !loaded) return; // Only attempt once after page loads
+
+    const attemptAutoPlay = async () => {
+      try {
+        setAutoPlayAttempted(true);
         console.log("Attempting auto-play music...");
 
         if (!audioRef.current) {
