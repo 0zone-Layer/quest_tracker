@@ -496,8 +496,13 @@ export default function PublicProfile() {
 
   // ── MUSIC PLAYER ──
   const [isPlaying,     setIsPlaying]     = useState(false);
-  const [musicVolume,   setMusicVolume]   = useState(0.4); // Default 40%
-  const [autoPlayAttempted, setAutoPlayAttempted] = useState(false);
+  const [musicVolume,   setMusicVolume]   = useState(0.35); // 30-40% range
+  const [musicList,     setMusicList]     = useState([
+    { name: "Lofi Chill", url: "/music/lofi.mp3" },
+    { name: "Chill Mode", url: "/music/Chill.mp3" },
+    { name: "Ambient", url: "/music/ambient.mp3" },
+  ]);
+  const [selectedTrack, setSelectedTrack] = useState(2);
   const audioRef = useRef(null);
 
   // ── FAST: Load profile + show immediately ──
@@ -610,15 +615,14 @@ export default function PublicProfile() {
   const toggleMusic = async () => {
     if (!audioRef.current) {
       const audio = new Audio();
-      audio.src = "/music/Chill.mp3"; // Single default track
+      audio.src = musicList[selectedTrack].url;
       audio.loop = true;
       audio.volume = musicVolume;
       audioRef.current = audio;
 
       audio.onerror = () => {
-        console.warn("Music load failed - file not found");
+        console.warn("Music load failed");
         setIsPlaying(false);
-        // Don't show error to user, just disable music
       };
     }
 
@@ -627,53 +631,24 @@ export default function PublicProfile() {
         audioRef.current.pause();
       } else {
         audioRef.current.volume = Math.min(musicVolume, 0.4); // Cap at 40%
+        audioRef.current.src = musicList[selectedTrack].url;
         await audioRef.current.play();
       }
       setIsPlaying(!isPlaying);
     } catch (error) {
       console.warn("Audio control failed:", error);
-      setIsPlaying(false);
     }
   };
 
-  // ── AUTO-PLAY MUSIC ON PAGE LOAD ──
-  useEffect(() => {
-    if (autoPlayAttempted || !loaded) return; // Only attempt once after page loads
-
-    const attemptAutoPlay = async () => {
-      try {
-        setAutoPlayAttempted(true);
-        console.log("Attempting auto-play music...");
-
-        if (!audioRef.current) {
-          const audio = new Audio();
-          audio.src = "/music/Chill.mp3";
-          audio.loop = true;
-          audio.volume = musicVolume;
-          audioRef.current = audio;
-
-          audio.onerror = () => {
-            console.warn("Auto-play music load failed - file not found");
-            setIsPlaying(false);
-            // Don't throw error, just disable music
-          };
-        }
-
-        // Try to play (browsers may block this)
-        audioRef.current.volume = Math.min(musicVolume, 0.4);
-        await audioRef.current.play();
-        setIsPlaying(true);
-        console.log("Auto-play successful");
-      } catch (error) {
-        console.warn("Auto-play blocked by browser or file missing:", error.message);
-        // Keep isPlaying false, user can manually start
+  const changeTrack = (index) => {
+    setSelectedTrack(index);
+    if (audioRef.current) {
+      audioRef.current.src = musicList[index].url;
+      if (isPlaying) {
+        audioRef.current.play().catch(() => {});
       }
-    };
-
-    // Small delay to ensure page is fully loaded
-    const timer = setTimeout(attemptAutoPlay, 500);
-    return () => clearTimeout(timer);
-  }, [loaded, autoPlayAttempted, musicVolume]);
+    }
+  };
 
   const handleVolumeChange = (e) => {
     const vol = Math.min(parseFloat(e.target.value), 0.4); // Cap at 40%
@@ -683,6 +658,21 @@ export default function PublicProfile() {
     }
   };
 
+  // Clock is handled by isolated LiveClock component
+
+  // ── Derived stats (memoized) ──
+  const earnedXP  = useMemo(() => Object.entries(completed).reduce((s,[id]) => s+(QUEST_MAP[id]?.xp||0), 0), [completed]);
+  const totalDone = useMemo(() => Object.keys(completed).length, [completed]);
+  const streak    = useMemo(() => calcStreak(completed), [completed]);
+  const level     = useMemo(() => Math.floor(earnedXP/1000)+1, [earnedXP]);
+  const lvlFloor  = useMemo(() => (level-1)*1000, [level]);
+  const lvlPct    = useMemo(() => Math.min(((earnedXP-lvlFloor)/1000)*100, 100), [earnedXP, lvlFloor]);
+  const ovPct     = useMemo(() => Math.round((totalDone/TOTAL_QUESTS)*100), [totalDone]);
+
+  const phDone = useCallback((ph) => Object.keys(QUEST_MAP).filter(id=>QUEST_MAP[id].phase===ph.id&&completed[id]).length, [completed]);
+  const phPct  = useCallback((ph) => Math.round((phDone(ph)/ph.quests)*100), [phDone]);
+  const yrDone = useCallback((yr) => PHASES.filter(p=>p.year===yr).reduce((s,p)=>s+phDone(p),0), [phDone]);
+  const yrTot  = useCallback((yr) => PHASES.filter(p=>p.year===yr).reduce((s,p)=>s+p.quests,0), []);
   const yrPct  = useCallback((yr) => Math.round((yrDone(yr)/yrTot(yr))*100), [yrDone, yrTot]);
 
   const curPhase   = useMemo(() => PHASES.find(p=>phPct(p)<100)||PHASES[PHASES.length-1], [phPct]);
@@ -742,6 +732,26 @@ export default function PublicProfile() {
             {isPlaying ? "⏸ PAUSE" : "▶ PLAY"}
           </button>
 
+          {/* Track Selector */}
+          <select
+            value={selectedTrack}
+            onChange={(e) => changeTrack(parseInt(e.target.value))}
+            style={{
+              background: "#0f1925",
+              border: "1px solid #1e2d40",
+              color: "#64748b",
+              borderRadius: "4px",
+              padding: "4px 6px",
+              cursor: "pointer",
+              fontSize: "11px",
+              fontFamily: "inherit",
+            }}
+          >
+            {musicList.map((track, idx) => (
+              <option key={idx} value={idx}>{track.name}</option>
+            ))}
+          </select>
+
           {/* Volume Control */}
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <input
@@ -757,7 +767,7 @@ export default function PublicProfile() {
                 cursor: "pointer",
                 accentColor: "#00ff88",
               }}
-              title="Volume (30-40%)"
+              title="Volume (capped at 40%)"
             />
             <span style={{ fontSize: "10px", color: "#475569", minWidth: "28px" }}>
               {Math.round(musicVolume * 100)}%
