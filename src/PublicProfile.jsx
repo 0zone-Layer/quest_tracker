@@ -497,6 +497,7 @@ export default function PublicProfile() {
   // ── MUSIC PLAYER ──
   const [isPlaying,     setIsPlaying]     = useState(false);
   const [musicVolume,   setMusicVolume]   = useState(0.4); // Default 40%
+  const [autoPlayAttempted, setAutoPlayAttempted] = useState(false);
   const audioRef = useRef(null);
 
   // ── FAST: Load profile + show immediately ──
@@ -609,7 +610,7 @@ export default function PublicProfile() {
   const toggleMusic = async () => {
     if (!audioRef.current) {
       const audio = new Audio();
-      audio.src = "/music/default.mp3"; // Single default track
+      audio.src = "/music/Chill.mp3"; // Single default track
       audio.loop = true;
       audio.volume = musicVolume;
       audioRef.current = audio;
@@ -633,29 +634,43 @@ export default function PublicProfile() {
     }
   };
 
-  const handleVolumeChange = (e) => {
-    const vol = Math.min(parseFloat(e.target.value), 0.4); // Cap at 40%
-    setMusicVolume(vol);
-    if (audioRef.current) {
-      audioRef.current.volume = vol;
-    }
-  };
+  // ── AUTO-PLAY MUSIC ON PAGE LOAD ──
+  useEffect(() => {
+    if (autoPlayAttempted || !loaded) return; // Only attempt once after page loads
 
-  // Clock is handled by isolated LiveClock component
+    const attemptAutoPlay = async () => {
+      try {
+        setAutoPlayAttempted(true);
+        console.log("Attempting auto-play music...");
 
-  // ── Derived stats (memoized) ──
-  const earnedXP  = useMemo(() => Object.entries(completed).reduce((s,[id]) => s+(QUEST_MAP[id]?.xp||0), 0), [completed]);
-  const totalDone = useMemo(() => Object.keys(completed).length, [completed]);
-  const streak    = useMemo(() => calcStreak(completed), [completed]);
-  const level     = useMemo(() => Math.floor(earnedXP/1000)+1, [earnedXP]);
-  const lvlFloor  = useMemo(() => (level-1)*1000, [level]);
-  const lvlPct    = useMemo(() => Math.min(((earnedXP-lvlFloor)/1000)*100, 100), [earnedXP, lvlFloor]);
-  const ovPct     = useMemo(() => Math.round((totalDone/TOTAL_QUESTS)*100), [totalDone]);
+        if (!audioRef.current) {
+          const audio = new Audio();
+          audio.src = "/music/Chill.mp3";
+          audio.loop = true;
+          audio.volume = musicVolume;
+          audioRef.current = audio;
 
-  const phDone = useCallback((ph) => Object.keys(QUEST_MAP).filter(id=>QUEST_MAP[id].phase===ph.id&&completed[id]).length, [completed]);
-  const phPct  = useCallback((ph) => Math.round((phDone(ph)/ph.quests)*100), [phDone]);
-  const yrDone = useCallback((yr) => PHASES.filter(p=>p.year===yr).reduce((s,p)=>s+phDone(p),0), [phDone]);
-  const yrTot  = useCallback((yr) => PHASES.filter(p=>p.year===yr).reduce((s,p)=>s+p.quests,0), []);
+          audio.onerror = () => {
+            console.warn("Auto-play music load failed");
+            setIsPlaying(false);
+          };
+        }
+
+        // Try to play (browsers may block this)
+        audioRef.current.volume = Math.min(musicVolume, 0.4);
+        await audioRef.current.play();
+        setIsPlaying(true);
+        console.log("Auto-play successful");
+      } catch (error) {
+        console.warn("Auto-play blocked by browser:", error.message);
+        // Keep isPlaying false, user can manually start
+      }
+    };
+
+    // Small delay to ensure page is fully loaded
+    const timer = setTimeout(attemptAutoPlay, 500);
+    return () => clearTimeout(timer);
+  }, [loaded, autoPlayAttempted, musicVolume]);
   const yrPct  = useCallback((yr) => Math.round((yrDone(yr)/yrTot(yr))*100), [yrDone, yrTot]);
 
   const curPhase   = useMemo(() => PHASES.find(p=>phPct(p)<100)||PHASES[PHASES.length-1], [phPct]);
