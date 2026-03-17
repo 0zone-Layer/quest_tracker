@@ -453,17 +453,39 @@ export default function QuestTracker() {
   useEffect(() => {
     (async () => {
       try {
+        console.log("Starting to load data...");
         const r1 = await cloudGet("quest-v2");
-        if (r1) setCompleted(JSON.parse(r1));
-        const r2 = await cloudGet("daily-focus");
-        if (r2) {
-          const df = JSON.parse(r2);
-          // reset if stale date
-          setDailyFocus(df.date === todayKey() ? df : { date: todayKey(), ids: [] });
+        console.log("Raw r1 from cloudGet:", r1);
+        if (r1) {
+          try {
+            const parsed = JSON.parse(r1);
+            console.log("Parsed completed data:", parsed);
+            setCompleted(parsed);
+          } catch (parseError) {
+            console.error("Failed to parse completed data:", parseError);
+          }
         } else {
+          console.log("No completed data found");
+        }
+        const r2 = await cloudGet("daily-focus");
+        console.log("Raw r2 from cloudGet:", r2);
+        if (r2) {
+          try {
+            const df = JSON.parse(r2);
+            console.log("Parsed daily focus data:", df);
+            // reset if stale date
+            setDailyFocus(df.date === todayKey() ? df : { date: todayKey(), ids: [] });
+          } catch (parseError) {
+            console.error("Failed to parse daily focus data:", parseError);
+            setDailyFocus({ date: todayKey(), ids: [] });
+          }
+        } else {
+          console.log("No daily focus data found");
           setDailyFocus({ date: todayKey(), ids: [] });
         }
-      } catch {}
+      } catch (error) {
+        console.error("Error during data loading:", error);
+      }
       setLoaded(true);
     })();
   }, []);
