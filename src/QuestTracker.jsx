@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
+import { cloudGet, cloudSet } from "./cloudStorage";
 
 // ─── DATA ────────────────────────────────────────────────────────────────────
 
@@ -451,11 +452,11 @@ export default function QuestTracker() {
   useEffect(() => {
     (async () => {
       try {
-        const r1 = await window.storage.get("knk-quest-v2");
-        if (r1) setCompleted(JSON.parse(r1.value));
-        const r2 = await window.storage.get("knk-daily-focus");
+        const r1 = await cloudGet("quest-v2");
+        if (r1) setCompleted(JSON.parse(r1));
+        const r2 = await cloudGet("daily-focus");
         if (r2) {
-          const df = JSON.parse(r2.value);
+          const df = JSON.parse(r2);
           // reset if stale date
           setDailyFocus(df.date === todayKey() ? df : { date: todayKey(), ids: [] });
         } else {
@@ -470,13 +471,13 @@ export default function QuestTracker() {
   const saveCompleted = useCallback((next) => {
     clearTimeout(saveTimers.current.completed);
     saveTimers.current.completed = setTimeout(async () => {
-      try { await window.storage.set("knk-quest-v2", JSON.stringify(next)); } catch {}
+      cloudSet("quest-v2", JSON.stringify(next));
     }, 400);
   }, []);
   const saveFocus = useCallback((next) => {
     clearTimeout(saveTimers.current.focus);
     saveTimers.current.focus = setTimeout(async () => {
-      try { await window.storage.set("knk-daily-focus", JSON.stringify(next)); } catch {}
+      cloudSet("daily-focus", JSON.stringify(next));
     }, 400);
   }, []);
 
