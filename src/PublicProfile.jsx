@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef, memo } from "react";
-import { cloudGet, cloudSet } from "./cloudStorage";
+import { Redis } from "@upstash/redis";
+
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 // 1. Place hero image at public/hero.jpg
