@@ -495,14 +495,14 @@ export default function PublicProfile() {
   const [tgProfile,     setTgProfile]     = useState(null);
 
   // ── MUSIC PLAYER ──
-  const [isPlaying,     setIsPlaying]     = useState(false);
+  const [isPlaying,     setIsPlaying]     = useState(true);
   const [musicVolume,   setMusicVolume]   = useState(0.35); // 30-40% range
   const [musicList,     setMusicList]     = useState([
     { name: "Lofi Chill", url: "/music/lofi.mp3" },
     { name: "Chill Mode", url: "/music/Chill.mp3" },
     { name: "Ambient", url: "/music/ambient.mp3" },
   ]);
-  const [selectedTrack, setSelectedTrack] = useState(2);
+  const [selectedTrack, setSelectedTrack] = useState(1);
   const audioRef = useRef(null);
 
   // ── FAST: Load profile + show immediately ──
