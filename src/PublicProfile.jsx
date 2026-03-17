@@ -495,7 +495,7 @@ export default function PublicProfile() {
   const [tgProfile,     setTgProfile]     = useState(null);
 
   // ── MUSIC PLAYER ──
-  const [isPlaying,     setIsPlaying]     = useState(true);
+  const [isPlaying,     setIsPlaying]     = useState(false);
   const [musicVolume,   setMusicVolume]   = useState(0.35); // 30-40% range
   const [musicList,     setMusicList]     = useState([
     { name: "Lofi Chill", url: "/music/lofi.mp3" },
