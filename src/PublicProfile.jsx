@@ -1,55 +1,5 @@
-// ─── CLOUD API (REPLACES cloudStorage.js) ─────────────────────────
-
-const API_SECRET = import.meta.env.VITE_SAVE_SECRET;
-
-if (!API_SECRET) {
-  console.warn("Missing VITE_SAVE_SECRET");
-}
-
-// 🔹 Load data (public + private safe)
-async function cloudGet(key, isPublic = false) {
-  try {
-    const url = isPublic
-      ? `/api/load?key=${key}&public=true`
-      : `/api/load?key=${key}&secret=${API_SECRET}`;
-
-    const res = await fetch(url);
-    const data = await res.json();
-
-    if (!res.ok) throw new Error(data.error || "Load failed");
-
-    return data.value || null;
-  } catch (err) {
-    console.error("cloudGet error:", err);
-    return null;
-  }
-}
-
-// 🔹 Save data (secure)
-async function cloudSet(key, value) {
-  try {
-    const res = await fetch("/api/save", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        key,
-        value,
-        secret: API_SECRET,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) throw new Error(data.error || "Save failed");
-
-    return true;
-  } catch (err) {
-    console.error("cloudSet error:", err);
-    return false;
-  }
-}
+import { useState, useEffect, useMemo, useCallback, useRef, memo } from "react";
+import { cloudGet, cloudSet } from "./cloudStorage";
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 // 1. Place hero image at public/hero.jpg
