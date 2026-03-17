@@ -616,8 +616,9 @@ export default function PublicProfile() {
       audioRef.current = audio;
 
       audio.onerror = () => {
-        console.warn("Music load failed");
+        console.warn("Music load failed - file not found");
         setIsPlaying(false);
+        // Don't show error to user, just disable music
       };
     }
 
@@ -631,16 +632,7 @@ export default function PublicProfile() {
       setIsPlaying(!isPlaying);
     } catch (error) {
       console.warn("Audio control failed:", error);
-    }
-  };
-
-  // ── AUTO-PLAY MUSIC ON PAGE LOAD ──
-  useEffect(() => {
-    if (autoPlayAttempted || !loaded) return; // Only attempt once after page loads
-
-    const attemptAutoPlay = async () => {
-      try {
-        setAutoPlayAttempted(true);
+      setIsPlaying(false);
         console.log("Attempting auto-play music...");
 
         if (!audioRef.current) {
@@ -651,8 +643,9 @@ export default function PublicProfile() {
           audioRef.current = audio;
 
           audio.onerror = () => {
-            console.warn("Auto-play music load failed");
+            console.warn("Auto-play music load failed - file not found");
             setIsPlaying(false);
+            // Don't throw error, just disable music
           };
         }
 
@@ -662,7 +655,7 @@ export default function PublicProfile() {
         setIsPlaying(true);
         console.log("Auto-play successful");
       } catch (error) {
-        console.warn("Auto-play blocked by browser:", error.message);
+        console.warn("Auto-play blocked by browser or file missing:", error.message);
         // Keep isPlaying false, user can manually start
       }
     };
@@ -671,6 +664,15 @@ export default function PublicProfile() {
     const timer = setTimeout(attemptAutoPlay, 500);
     return () => clearTimeout(timer);
   }, [loaded, autoPlayAttempted, musicVolume]);
+
+  const handleVolumeChange = (e) => {
+    const vol = Math.min(parseFloat(e.target.value), 0.4); // Cap at 40%
+    setMusicVolume(vol);
+    if (audioRef.current) {
+      audioRef.current.volume = vol;
+    }
+  };
+
   const yrPct  = useCallback((yr) => Math.round((yrDone(yr)/yrTot(yr))*100), [yrDone, yrTot]);
 
   const curPhase   = useMemo(() => PHASES.find(p=>phPct(p)<100)||PHASES[PHASES.length-1], [phPct]);
