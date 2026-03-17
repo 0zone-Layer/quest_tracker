@@ -499,10 +499,10 @@ export default function PublicProfile() {
   const [musicVolume,   setMusicVolume]   = useState(0.35); // 30-40% range
   const [musicList,     setMusicList]     = useState([
     { name: "Lofi Chill", url: "/music/lofi.mp3" },
-    { name: "Focus Mode", url: "/music/focus.mp3" },
+    { name: "Chill Mode", url: "/music/Chill.mp3" },
     { name: "Ambient", url: "/music/ambient.mp3" },
   ]);
-  const [selectedTrack, setSelectedTrack] = useState(0);
+  const [selectedTrack, setSelectedTrack] = useState(2);
   const audioRef = useRef(null);
 
   // ── FAST: Load profile + show immediately ──
